@@ -98,6 +98,7 @@ func imageUriTransfer(imageUri string) string {
 	return imageUri
 }
 
+// 拉取镜像
 func imagePull(imageUri string) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -111,6 +112,7 @@ func imagePull(imageUri string) {
 	io.Copy(os.Stdout, out)
 }
 
+// 推送镜像
 func imagePush(imageUri, address string) {
 
 }
