@@ -22,7 +22,10 @@ func main() {
 	// 2. push image
 	fmt.Println(os.Args)
 
-	if len(os.Args) < 3 {
+	if len(os.Args) == 2 && os.Args[1] == "version" {
+		fmt.Println("v0.1.0")
+		return
+	} else if len(os.Args) < 3 {
 		fmt.Println(`
 		使用说明: 
 		  k8s-image pull     <image>           从公共仓库拉取镜像
