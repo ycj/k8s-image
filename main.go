@@ -24,7 +24,7 @@ func main() {
 	fmt.Println(os.Args)
 
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Println("v0.2.3")
+		fmt.Println("v0.2.4")
 		return
 	} else if len(os.Args) < 3 {
 		fmt.Println(`
@@ -40,13 +40,12 @@ func main() {
 	case "pull":
 		originImageUri := os.Args[2]
 		newImageUri := imageUriConvertToDockerHub(originImageUri)
-		fmt.Println("拉取镜像:", newImageUri)
 		imagePull(newImageUri)
 
 		if originImageUri != newImageUri {
-			fmt.Println("重命名标签:", originImageUri)
+			fmt.Println("还原标签:", originImageUri)
 			renameTag(newImageUri, originImageUri)
-			fmt.Println("删除标签:", newImageUri)
+			fmt.Println("删除临时标签:", newImageUri)
 			deleteTag(newImageUri)
 		}
 	case "push":
@@ -55,34 +54,28 @@ func main() {
 		newImageUri := imageUriConvertToPrivateRegistry(originImageUri, address)
 		renameTag(originImageUri, newImageUri)
 		imagePush(newImageUri)
-		if originImageUri != newImageUri {
-			echo("删除标签：", newImageUri)
-			deleteTag(newImageUri)
-		}
+		echo("删除临时标签：", newImageUri)
+		deleteTag(newImageUri)
+
 	case "redirect":
 		originImageUri := os.Args[2]
 		address := os.Args[3]
 		newImageUri := imageUriConvertToDockerHub(originImageUri)
-		fmt.Println("拉取镜像:", newImageUri)
 		imagePull(newImageUri)
-
 		if originImageUri != newImageUri {
-			fmt.Println("重命名标签:", originImageUri)
+			fmt.Println("还原标签:", originImageUri)
 			renameTag(newImageUri, originImageUri)
 			fmt.Println("删除标签:", newImageUri)
 			deleteTag(newImageUri)
 		}
 
-		newImageUri = imageUriConvertToPrivateRegistry(originImageUri, address)
-		echo("匹配私有仓库地址：", newImageUri)
-		renameTag(originImageUri, newImageUri)
-		echo("推送镜像：", newImageUri)
-		imagePush(newImageUri)
-		if originImageUri != newImageUri {
-			echo("删除标签：", newImageUri)
-			deleteTag(newImageUri)
-		}
-		echo("删除标签：", originImageUri)
+		privateImageUri := imageUriConvertToPrivateRegistry(originImageUri, address)
+		echo("私有标签：", privateImageUri)
+		renameTag(originImageUri, privateImageUri)
+		imagePush(privateImageUri)
+		echo("删除私有标签：", privateImageUri)
+		deleteTag(privateImageUri)
+		echo("删除临时镜像：", originImageUri)
 		deleteTag(originImageUri)
 	default:
 		fmt.Println("不支持的操作")
@@ -129,8 +122,16 @@ func imageUriConvertToPrivateRegistry(imageUri string, address string) string {
 		return fmt.Sprintf("%s/%s/%s", address, data[1], data[2])
 	}
 
-	if dataLen == 2 && (registry == "k8s.gcr.io" || registry == "registry.k8s.io") {
-		return fmt.Sprintf("%s/%s", address, data[1])
+	if dataLen == 2 {
+		if registry == "k8s.gcr.io" || registry == "registry.k8s.io" { // example: k8s.gcr.io/kube-apiserver:v1.9.0
+			return fmt.Sprintf("%s/%s", address, data[1])
+		} else { // example: apache/flink:1.11.2-scala_2.12-java11
+			return fmt.Sprintf("%s/%s/%s", address, data[0], data[1])
+		}
+	}
+
+	if dataLen == 1 { //example: nginx:1.25.1
+		return fmt.Sprintf("%s/%s", address, data[0])
 	}
 
 	return imageUri
@@ -163,6 +164,7 @@ func imageUriConvertToDockerHub(imageUri string) string {
 
 // 拉取镜像
 func imagePull(imageUri string) {
+	echo("拉取镜像：", imageUri)
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
@@ -177,6 +179,7 @@ func imagePull(imageUri string) {
 
 // 推送镜像
 func imagePush(imageUri string) {
+	echo("推送镜像：", imageUri)
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		panic(err)
