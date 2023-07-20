@@ -24,7 +24,7 @@ func main() {
 	fmt.Println(os.Args)
 
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Println("v0.2.0")
+		fmt.Println("v0.2.3")
 		return
 	} else if len(os.Args) < 3 {
 		fmt.Println(`
@@ -75,6 +75,8 @@ func main() {
 
 		newImageUri = imageUriConvertToPrivateRegistry(originImageUri, address)
 		echo("匹配私有仓库地址：", newImageUri)
+		renameTag(originImageUri, newImageUri)
+		echo("推送镜像：", newImageUri)
 		imagePush(newImageUri)
 		if originImageUri != newImageUri {
 			echo("删除标签：", newImageUri)
@@ -179,9 +181,14 @@ func imagePush(imageUri string) {
 	if err != nil {
 		panic(err)
 	}
+	username := os.Getenv("DOCKER_USERNAME")
+	password := os.Getenv("DOCKER_PASSWORD")
+	if username == "" || password == "" {
+		panic("请设置环境变量：DOCKER_USERNAME、DOCKER_PASSWORD")
+	}
 	authConfig := types.AuthConfig{
-		Username: "hylink",
-		Password: "hylink",
+		Username: username,
+		Password: password,
 	}
 	jsonData, err := json.Marshal(authConfig)
 	if err != nil {
@@ -190,7 +197,7 @@ func imagePush(imageUri string) {
 	authStr := base64.URLEncoding.EncodeToString(jsonData)
 	out, err := cli.ImagePush(context.Background(), imageUri, types.ImagePushOptions{
 		All:           false,
-		RegistryAuth:  "",
+		RegistryAuth:  authStr,
 		PrivilegeFunc: nil,
 	})
 	if err != nil {
