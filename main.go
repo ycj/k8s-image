@@ -174,7 +174,28 @@ func imagePull(imageUri string) {
 		panic(err)
 	}
 	defer out.Close()
-	io.Copy(os.Stdout, out)
+	// io.Copy(os.Stdout, out)
+	decoder := json.NewDecoder(out)
+	for {
+		var s Status
+		if err := decoder.Decode(&s); err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		if s.Error != "" {
+			panic(s.ErrorDetail.Message)
+		}
+		if s.Progress != nil {
+			if s.Progress.Current < s.Progress.Total {
+				fmt.Printf("%20s %s %d/%d\r", s.Status, s.Id, s.Progress.Current, s.Progress.Total)
+			} else {
+				fmt.Printf("%20s %s %d/%d\n", s.Status, s.Id, s.Progress.Current, s.Progress.Total)
+			}
+		} else {
+			fmt.Println(s.Status)
+		}
+	}
 }
 
 // 推送镜像
@@ -208,4 +229,19 @@ func imagePush(imageUri string) {
 	}
 	defer out.Close()
 	io.Copy(os.Stdout, out)
+}
+
+// 解析Docker API的响应
+type Progress struct {
+	Current int64 `json:"current"`
+	Total   int64 `json:"total"`
+}
+type Status struct {
+	Status      string    `json:"status"`
+	Progress    *Progress `json:"progressDetail"`
+	Id          string    `json:"id"`
+	Error       string    `json:"error,omitempty"`
+	ErrorDetail struct {
+		Message string `json:"message"`
+	} `json:"errorDetail,omitempty"`
 }
