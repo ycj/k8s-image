@@ -174,7 +174,12 @@ func imagePull(imageUri string) {
 		panic(err)
 	}
 	defer out.Close()
-	// io.Copy(os.Stdout, out)
+
+	displayDockerStatus(out)
+}
+
+// 显示Docker进度
+func displayDockerStatus(out io.ReadCloser) {
 	decoder := json.NewDecoder(out)
 	for {
 		var s Status
@@ -188,9 +193,10 @@ func imagePull(imageUri string) {
 		}
 		if s.Progress != nil {
 			if s.Progress.Current < s.Progress.Total {
-				fmt.Printf("%20s %s %d/%d\r", s.Status, s.Id, s.Progress.Current, s.Progress.Total)
+				percentage := int(float64(s.Progress.Current) / float64(s.Progress.Total) * 100)
+				fmt.Printf("%20s %s %d%%\r", s.Status, s.Id, percentage)
 			} else {
-				fmt.Printf("%20s %s %d/%d\n", s.Status, s.Id, s.Progress.Current, s.Progress.Total)
+				fmt.Printf("%20s %s %d%%\n", s.Status, s.Id, 100)
 			}
 		} else {
 			fmt.Println(s.Status)
@@ -228,7 +234,8 @@ func imagePush(imageUri string) {
 		panic(err)
 	}
 	defer out.Close()
-	io.Copy(os.Stdout, out)
+
+	displayDockerStatus(out)
 }
 
 // 解析Docker API的响应
@@ -236,6 +243,8 @@ type Progress struct {
 	Current int64 `json:"current"`
 	Total   int64 `json:"total"`
 }
+
+// 解析Docker API的响应
 type Status struct {
 	Status      string    `json:"status"`
 	Progress    *Progress `json:"progressDetail"`
