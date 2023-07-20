@@ -13,17 +13,16 @@ import (
 
 /*
 usage:
-1. k8s-image pull gcr.io/google_containers/kube-apiserver-amd64:v1.9.0
-2. k8s-image push gcr.io/google_containers/kube-apiserver-amd64:v1.9.0  <ip:port>
+1. k8s-image pull     gcr.io/google_containers/kube-apiserver-amd64:v1.9.0
+2. k8s-image push     gcr.io/google_containers/kube-apiserver-amd64:v1.9.0  <ip:port>
+3. k8s-image redirect gcr.io/google_containers/kube-apiserver-amd64:v1.9.0  <ip:port>
 */
 
 func main() {
-	// 1. pull image
-	// 2. push image
 	fmt.Println(os.Args)
 
 	if len(os.Args) == 2 && os.Args[1] == "version" {
-		fmt.Println("v0.1.0")
+		fmt.Println("v0.2.0")
 		return
 	} else if len(os.Args) < 3 {
 		fmt.Println(`
@@ -38,18 +37,55 @@ func main() {
 	switch os.Args[1] {
 	case "pull":
 		originImageUri := os.Args[2]
-		newImageUri := imageUriTransfer(originImageUri)
+		newImageUri := imageUriConvertToDockerHub(originImageUri)
 		fmt.Println("拉取镜像:", newImageUri)
 		imagePull(newImageUri)
-		fmt.Println("重命名标签:", originImageUri)
-		renameTag(newImageUri, originImageUri)
-		fmt.Println("删除标签:", newImageUri)
-		deleteTag(newImageUri)
+
+		if originImageUri != newImageUri {
+			fmt.Println("重命名标签:", originImageUri)
+			renameTag(newImageUri, originImageUri)
+			fmt.Println("删除标签:", newImageUri)
+			deleteTag(newImageUri)
+		}
 	case "push":
-		imagePush(os.Args[2], os.Args[3])
+		originImageUri := os.Args[2]
+		address := os.Args[3]
+		newImageUri := imageUriConvertToPrivateRegistry(originImageUri, address)
+		imagePush(newImageUri)
+		if originImageUri != newImageUri {
+			deleteTag(newImageUri)
+		}
+	case "redirect":
+		originImageUri := os.Args[2]
+		address := os.Args[3]
+		newImageUri := imageUriConvertToDockerHub(originImageUri)
+		fmt.Println("拉取镜像:", newImageUri)
+		imagePull(newImageUri)
+
+		if originImageUri != newImageUri {
+			fmt.Println("重命名标签:", originImageUri)
+			renameTag(newImageUri, originImageUri)
+			fmt.Println("删除标签:", newImageUri)
+			deleteTag(newImageUri)
+		}
+
+		newImageUri = imageUriConvertToPrivateRegistry(originImageUri, address)
+		echo("匹配私有仓库地址：", newImageUri)
+		imagePush(newImageUri)
+		if originImageUri != newImageUri {
+			echo("删除标签：", newImageUri)
+			deleteTag(newImageUri)
+		}
+		echo("删除标签：", originImageUri)
+		deleteTag(originImageUri)
 	default:
 		fmt.Println("不支持的操作")
 	}
+}
+
+// 任意类型打印输出
+func echo(args ...any) {
+	fmt.Println(args...)
 }
 
 // 删除镜像
@@ -73,11 +109,29 @@ func renameTag(originImageUri, newImageUri string) {
 	}
 }
 
+// 转换镜像地址匹配私有仓库
+func imageUriConvertToPrivateRegistry(imageUri string, address string) string {
+	data := strings.Split(imageUri, "/")
+	dataLen := len(data)
+	registry := data[0]
+
+	if dataLen == 4 && registry == "ghcr.io" {
+		return fmt.Sprintf("%s/%s/%s/%s", address, data[1], data[2], data[3])
+	}
+
+	if dataLen == 3 && (registry == "gcr.io" || registry == "quay.io" || registry == "registry.k8s.io" || registry == "k8s.gcr.io" || registry == "ghcr.io") {
+		return fmt.Sprintf("%s/%s/%s", address, data[1], data[2])
+	}
+
+	if dataLen == 2 && (registry == "k8s.gcr.io" || registry == "registry.k8s.io") {
+		return fmt.Sprintf("%s/%s", address, data[1])
+	}
+
+	return imageUri
+}
+
 // 转换镜像地址
-// gcr.io/google_containers/kube-apiserver-amd64:v1.9.0  -> anjia0532/google_containers.kube-apiserver-amd64:v1.9.0
-// registry.k8s.io/pause:1.0 -> anjia0532/google_containers.pause:1.0
-// k8s.gcr.io/pause-amd64:3.1 -> anjia0532/google_containers.pause-amd64:3.1
-func imageUriTransfer(imageUri string) string {
+func imageUriConvertToDockerHub(imageUri string) string {
 	data := strings.Split(imageUri, "/")
 	dataLen := len(data)
 	registry := data[0]
@@ -116,6 +170,15 @@ func imagePull(imageUri string) {
 }
 
 // 推送镜像
-func imagePush(imageUri, address string) {
-
+func imagePush(imageUri string) {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		panic(err)
+	}
+	out, err := cli.ImagePush(context.Background(), imageUri, types.ImagePushOptions{})
+	if err != nil {
+		panic(err)
+	}
+	defer out.Close()
+	io.Copy(os.Stdout, out)
 }
