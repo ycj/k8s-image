@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -51,8 +53,10 @@ func main() {
 		originImageUri := os.Args[2]
 		address := os.Args[3]
 		newImageUri := imageUriConvertToPrivateRegistry(originImageUri, address)
+		renameTag(originImageUri, newImageUri)
 		imagePush(newImageUri)
 		if originImageUri != newImageUri {
+			echo("删除标签：", newImageUri)
 			deleteTag(newImageUri)
 		}
 	case "redirect":
@@ -175,7 +179,20 @@ func imagePush(imageUri string) {
 	if err != nil {
 		panic(err)
 	}
-	out, err := cli.ImagePush(context.Background(), imageUri, types.ImagePushOptions{})
+	authConfig := types.AuthConfig{
+		Username: "hylink",
+		Password: "hylink",
+	}
+	jsonData, err := json.Marshal(authConfig)
+	if err != nil {
+		panic(err)
+	}
+	authStr := base64.URLEncoding.EncodeToString(jsonData)
+	out, err := cli.ImagePush(context.Background(), imageUri, types.ImagePushOptions{
+		All:           false,
+		RegistryAuth:  "",
+		PrivilegeFunc: nil,
+	})
 	if err != nil {
 		panic(err)
 	}
