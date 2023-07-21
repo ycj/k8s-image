@@ -23,7 +23,9 @@
     ```
 
     上传镜像需要设置一下环境变量, 待上传镜像仓库的用户名和密码
+   
     DOCKER_USERNAME
+   
     DOCKER_PASSWORD
 
 5. 转发镜像
