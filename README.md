@@ -22,7 +22,11 @@
     k8s-image push registry.k8s.io/kube-apiserver:v1.18.0  xxx.xxx.xxx.xxx:xxxx
     ```
 
-4. 转发镜像
+    上传镜像需要设置一下环境变量, 待上传镜像仓库的用户名和密码
+    DOCKER_USERNAME
+    DOCKER_PASSWORD
+
+5. 转发镜像
 
     将远程仓库镜像转发到指定仓库，可以简单理解是pull+push的组合
     
