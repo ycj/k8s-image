@@ -26,7 +26,7 @@ jobs:
           tag_name: ${{ github.ref }}
           release_name: Release ${{ github.ref }}
           body: |
-            Changes in this release:
+            Changes in this release: ${{ github.ref }}:
             - Added feature A
             - Fixed bug B
           draft: false
