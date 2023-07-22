@@ -1,4 +1,4 @@
-name: Build Release
+name: 构建发行
 
 on:
   workflow_dispatch:
