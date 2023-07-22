@@ -1,19 +1,31 @@
+name: Build Release
+
 on:
-  release:
-    types: [created]
-
-permissions:
-    contents: write
-    packages: write
-
+  workflow_dispatch:
+  
 jobs:
-  release-linux-amd64:
-    name: release linux/amd64
+  build:
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
-    - uses: actions/checkout@v3
-    - uses: wangyoucao577/go-release-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: linux
-        goarch: amd64
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.20
+      - name: Build binary
+        run: go build -o k8s-image
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Changes in this release:
+            - Added feature A
+            - Fixed bug B
+          draft: false
+          prerelease: false
