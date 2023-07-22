@@ -13,9 +13,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Set up Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.20
+          go-version: '1.20'
       - name: Build binary
         run: go build -o k8s-image
       - name: Create Release
